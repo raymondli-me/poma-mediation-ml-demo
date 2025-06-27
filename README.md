@@ -6,7 +6,7 @@ This repository demonstrates critical findings about mediation analysis using Ma
 
 1. **Equivalence with Linear Data**: Traditional mediation analysis, Frisch-Waugh-Lovell (FWL), and Double Machine Learning (DML) are mathematically equivalent when relationships are linear.
 
-2. **Linear Blindness**: When relationships are symmetric/non-linear (e.g., X→M=X², M→Y=M²), linear methods detect ~0% mediation while ML correctly identifies ~95% mediation.
+2. **Linear Blindness**: When relationships are curvilinear/symmetric (e.g., X→M=X², M→Y=(M-c)²), linear methods detect ~0% mediation while ML correctly identifies ~95% mediation.
 
 3. **ML Calibration**: ML methods correctly scale their estimates based on true mediation strength, detecting high mediation when present and low mediation when absent.
 
@@ -64,9 +64,11 @@ Traditional linear mediation analysis **completely misses** these relationships,
 
 ## Key Results
 
-### 1. Perfect Symmetry (X²→M²)
+### 1. Perfect Symmetry with Curvilinear Relationships
+- **X→M**: M = X² (U-shaped)
+- **M→Y**: Y = (M-4.5)² (U-shaped, curvilinear)
 - **Truth**: ~100% mediation
-- **Linear Detection**: 0.1% (R²≈0)
+- **Linear Detection**: 0.1% (R²≈0, correlations ≈ 0)
 - **ML Detection**: 99.5% (R²≈1)
 
 ### 2. Linear Data Equivalence

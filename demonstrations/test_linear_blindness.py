@@ -43,7 +43,7 @@ class LinearBlindnessTest:
         M = X**2 + 0.3 * np.random.randn(n)
         
         # Y = (M-5)² - another U-shape centered at M=5
-        # This creates strong M→Y relationship with zero correlation
+        # This creates strong curvilinear M→Y relationship with zero correlation
         Y = (M - 5)**2 + 0.5 * np.random.randn(n)
         
         # Tiny direct effect for realism
@@ -60,8 +60,8 @@ class LinearBlindnessTest:
         print(f"    Corr(M, Y) = {corr_MY:.4f}")
         print(f"    Corr(X, Y) = {corr_XY:.4f}")
         print(f"\n  True relationships:")
-        print(f"    X → M: M = X² (U-shaped)")
-        print(f"    M → Y: Y = (M-5)² (U-shaped)")
+        print(f"    X → M: M = X² (U-shaped/curvilinear)")
+        print(f"    M → Y: Y = (M-5)² (U-shaped/curvilinear)")
         print(f"    Truth: ~95% mediation through M")
         print(f"    Linear methods will see NOTHING!")
         
@@ -310,20 +310,20 @@ def create_blindness_visualization(data1, data2, results):
     ax = axes[0, 0]
     ax.scatter(X1, M1, alpha=0.3, s=10, color='blue')
     x_sorted = np.sort(X1)
-    ax.plot(x_sorted, x_sorted**2, 'r-', linewidth=3, label='M = X²')
+    ax.plot(x_sorted, x_sorted**2, 'r-', linewidth=3, label='M = X² (curvilinear)')
     ax.set_xlabel('X')
     ax.set_ylabel('M')
-    ax.set_title(f'Symmetric: X→M\nr = {np.corrcoef(X1, M1)[0,1]:.3f} ≈ 0')
+    ax.set_title(f'Curvilinear: X→M\nr = {np.corrcoef(X1, M1)[0,1]:.3f} ≈ 0')
     ax.legend()
     
     # M vs Y
     ax = axes[0, 1]
     ax.scatter(M1, Y1, alpha=0.3, s=10, color='green')
     m_sorted = np.sort(M1)
-    ax.plot(m_sorted, (m_sorted - 5)**2, 'r-', linewidth=3, label='Y = (M-5)²')
+    ax.plot(m_sorted, (m_sorted - 5)**2, 'r-', linewidth=3, label='Y = (M-5)² (curvilinear)')
     ax.set_xlabel('M')
     ax.set_ylabel('Y')
-    ax.set_title(f'Symmetric: M→Y\nr = {np.corrcoef(M1, Y1)[0,1]:.3f} ≈ 0')
+    ax.set_title(f'Curvilinear: M→Y\nr = {np.corrcoef(M1, Y1)[0,1]:.3f} ≈ 0')
     ax.legend()
     
     # X vs Y
