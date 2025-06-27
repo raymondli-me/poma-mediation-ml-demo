@@ -16,22 +16,22 @@ np.random.seed(42)
 def perfect_symmetry_demo(n=5000):
     """Generate perfectly symmetric data with strong mediation"""
     
-    # X uniform from -2 to 2 (perfectly symmetric)
-    X = np.random.uniform(-2, 2, n)
+    # X uniform from -3 to 3 (perfectly symmetric)
+    X = np.random.uniform(-3, 3, n)
     
     # M = X² + small noise (U-shaped relationship)
-    M = X**2 + 0.2 * np.random.randn(n)
+    M = X**2 + 0.3 * np.random.randn(n)
     
-    # Y = (M - 4.5)² + small noise (U-shaped, centered at M=4.5)
-    # This creates a curvilinear relationship where correlation ≈ 0
-    Y = (M - 4.5)**2 + 0.3 * np.random.randn(n)
+    # For Y, we need a relationship that's orthogonal to M
+    # We'll use sin(M) which oscillates and has zero correlation with M
+    Y = 5 * np.sin(M) + 0.5 * np.random.randn(n)
     
     print("SCENARIO 1: PERFECT SYMMETRY - STRONG MEDIATION")
     print("="*60)
     print("Data generation:")
-    print("  X ~ Uniform(-2, 2)")
+    print("  X ~ Uniform(-3, 3)")
     print("  M = X²")
-    print("  Y = (M - 4.5)² (U-shaped, centered at M=4.5)")
+    print("  Y = 5·sin(M) (oscillating, curvilinear)")
     print("  Truth: 100% mediation through M")
     print("  Both relationships are curvilinear with ≈ 0 correlation!")
     
@@ -158,10 +158,10 @@ ax.set_title(f'X → M = X²\nr = {np.corrcoef(X1, M1)[0,1]:.3f}')
 ax = axes[0, 1]
 ax.scatter(M1, Y1, alpha=0.5, s=20)
 m_sorted = np.sort(M1)
-ax.plot(m_sorted, (m_sorted - 4.5)**2, 'r-', linewidth=3)
+ax.plot(m_sorted, 5 * np.sin(m_sorted), 'r-', linewidth=3)
 ax.set_xlabel('M')
 ax.set_ylabel('Y')
-ax.set_title(f'M → Y = (M-4.5)² (U-shaped)\nr = {np.corrcoef(M1, Y1)[0,1]:.3f}')
+ax.set_title(f'M → Y = 5·sin(M) (curvilinear)\nr = {np.corrcoef(M1, Y1)[0,1]:.3f}')
 
 ax = axes[0, 2]
 ax.scatter(X1, Y1, alpha=0.5, s=20)
