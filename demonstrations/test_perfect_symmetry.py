@@ -52,11 +52,21 @@ def perfect_symmetry_demo(n=5000):
     r2_xy_linear = lr_xy.score(X.reshape(-1,1), Y)
     beta_total = lr_xy.coef_[0]
     
+    # Direct effect (controlling for M)
+    XM = np.hstack([X.reshape(-1,1), M.reshape(-1,1)])
+    lr_direct = LinearRegression().fit(XM, Y)
+    beta_direct = lr_direct.coef_[0]
+    
+    # PoMA calculation
+    poma_linear = 1 - (beta_direct / beta_total) if abs(beta_total) > 1e-10 else np.nan
+    
     print(f"\nLinear R² values:")
     print(f"  R²(X→M) = {r2_xm_linear:.4f} ≈ 0")
     print(f"  R²(M→Y) = {r2_my_linear:.4f}")
     print(f"  R²(X→Y) = {r2_xy_linear:.4f} ≈ 0")
     print(f"  β_total = {beta_total:.4f} ≈ 0")
+    print(f"  β_direct = {beta_direct:.4f}")
+    print(f"  PoMA (linear) = {poma_linear:.4f}" if not np.isnan(poma_linear) else "  PoMA (linear) = undefined (β_total≈0)")
     
     # ML analysis
     xgb_xm = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
@@ -79,14 +89,37 @@ def perfect_symmetry_demo(n=5000):
     # DML for mediation
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     Y_hat = np.zeros(n)
+    X_hat = np.zeros(n)
     
     for train_idx, test_idx in kf.split(X):
-        xgb_temp = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
-        xgb_temp.fit(M[train_idx].reshape(-1,1), Y[train_idx])
-        Y_hat[test_idx] = xgb_temp.predict(M[test_idx].reshape(-1,1))
+        # Y|M
+        xgb_y = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
+        xgb_y.fit(M[train_idx].reshape(-1,1), Y[train_idx])
+        Y_hat[test_idx] = xgb_y.predict(M[test_idx].reshape(-1,1))
+        
+        # X|M
+        xgb_x = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
+        xgb_x.fit(M[train_idx].reshape(-1,1), X[train_idx])
+        X_hat[test_idx] = xgb_x.predict(M[test_idx].reshape(-1,1))
+    
+    # Residuals
+    e_Y = Y - Y_hat
+    e_X = X - X_hat
+    
+    # DML coefficient (residual on residual)
+    if np.var(e_X) > 1e-10:
+        lr_dml = LinearRegression().fit(e_X.reshape(-1,1), e_Y)
+        beta_dml = lr_dml.coef_[0]
+        poma_dml = 1 - (beta_dml / beta_total) if abs(beta_total) > 1e-10 else np.nan
+    else:
+        beta_dml = 0
+        poma_dml = 1.0  # Complete mediation if no residual variance
     
     r2_y_given_m = 1 - np.mean((Y - Y_hat)**2) / np.var(Y)
+    
     print(f"\nDML R²(Y|M) = {r2_y_given_m:.4f} ← ~100% mediation!")
+    print(f"  β_dml = {beta_dml:.4f}")
+    print(f"  PoMA (DML) = {poma_dml:.4f}" if not np.isnan(poma_dml) else "  PoMA (DML) = undefined")
     
     return X, M, Y, {
         'r2_xm_linear': r2_xm_linear,
@@ -95,7 +128,12 @@ def perfect_symmetry_demo(n=5000):
         'r2_xm_ml': r2_xm_ml,
         'r2_my_ml': r2_my_ml,
         'r2_xy_ml': r2_xy_ml,
-        'r2_y_given_m_dml': r2_y_given_m
+        'r2_y_given_m_dml': r2_y_given_m,
+        'beta_total': beta_total,
+        'beta_direct': beta_direct,
+        'beta_dml': beta_dml,
+        'poma_linear': poma_linear,
+        'poma_dml': poma_dml
     }
 
 def weak_mediation_demo(n=5000):
@@ -116,6 +154,15 @@ def weak_mediation_demo(n=5000):
     # Linear analysis
     lr_xy = LinearRegression().fit(X.reshape(-1,1), Y)
     r2_xy_linear = lr_xy.score(X.reshape(-1,1), Y)
+    beta_total = lr_xy.coef_[0]
+    
+    # Direct effect (controlling for M)
+    XM = np.hstack([X.reshape(-1,1), M.reshape(-1,1)])
+    lr_direct = LinearRegression().fit(XM, Y)
+    beta_direct = lr_direct.coef_[0]
+    
+    # PoMA calculation
+    poma_linear = 1 - (beta_direct / beta_total) if abs(beta_total) > 1e-10 else np.nan
     
     # ML analysis
     xgb_xy = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
@@ -125,11 +172,31 @@ def weak_mediation_demo(n=5000):
     # DML
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     Y_hat = np.zeros(n)
+    X_hat = np.zeros(n)
     
     for train_idx, test_idx in kf.split(X):
-        xgb_temp = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
-        xgb_temp.fit(M[train_idx].reshape(-1,1), Y[train_idx])
-        Y_hat[test_idx] = xgb_temp.predict(M[test_idx].reshape(-1,1))
+        # Y|M
+        xgb_y = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
+        xgb_y.fit(M[train_idx].reshape(-1,1), Y[train_idx])
+        Y_hat[test_idx] = xgb_y.predict(M[test_idx].reshape(-1,1))
+        
+        # X|M
+        xgb_x = xgb.XGBRegressor(n_estimators=200, max_depth=5, random_state=42, verbosity=0)
+        xgb_x.fit(M[train_idx].reshape(-1,1), X[train_idx])
+        X_hat[test_idx] = xgb_x.predict(M[test_idx].reshape(-1,1))
+    
+    # Residuals
+    e_Y = Y - Y_hat
+    e_X = X - X_hat
+    
+    # DML coefficient
+    if np.var(e_X) > 1e-10:
+        lr_dml = LinearRegression().fit(e_X.reshape(-1,1), e_Y)
+        beta_dml = lr_dml.coef_[0]
+        poma_dml = 1 - (beta_dml / beta_total) if abs(beta_total) > 1e-10 else np.nan
+    else:
+        beta_dml = 0
+        poma_dml = 1.0
     
     r2_y_given_m = 1 - np.mean((Y - Y_hat)**2) / np.var(Y)
     
@@ -137,11 +204,15 @@ def weak_mediation_demo(n=5000):
     print(f"R²(X→Y) ML:     {r2_xy_ml:.4f}")
     print(f"DML R²(Y|M):    {r2_y_given_m:.4f} ← ~5% mediation")
     
-    return X, M, Y, r2_y_given_m
+    print(f"\nPoMA Results:")
+    print(f"  PoMA (linear) = {poma_linear:.4f}")
+    print(f"  PoMA (DML) = {poma_dml:.4f}")
+    
+    return X, M, Y, r2_y_given_m, poma_linear, poma_dml
 
 # Run demonstrations
 X1, M1, Y1, results1 = perfect_symmetry_demo()
-X2, M2, Y2, r2_2 = weak_mediation_demo()
+X2, M2, Y2, r2_2, poma_linear_2, poma_dml_2 = weak_mediation_demo()
 
 # Create visualization
 fig, axes = plt.subplots(2, 3, figsize=(15, 10))

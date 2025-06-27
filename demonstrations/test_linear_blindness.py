@@ -133,7 +133,7 @@ class LinearBlindnessTest:
         r2_full_linear = ols_direct.score(XM, Y)
         
         # PoMA - will fail if beta_total ≈ 0
-        if abs(beta_total) > 0.001:
+        if abs(beta_total) > 1e-10:
             poma_linear = 1 - (beta_direct / beta_total)
         else:
             poma_linear = np.nan  # Undefined!
@@ -205,6 +205,12 @@ class LinearBlindnessTest:
         
         # Direct effect on residuals
         if np.var(e_X) > 1e-10:
+            # For DML, we use linear regression on residuals (as in three-way equivalence)
+            lr_dml = LinearRegression()
+            lr_dml.fit(e_X.reshape(-1, 1), e_Y)
+            beta_dml = lr_dml.coef_[0]
+            
+            # Also calculate with XGBoost for comparison
             xgb_residual = xgb.XGBRegressor(
                 n_estimators=200,
                 max_depth=4,
@@ -215,13 +221,19 @@ class LinearBlindnessTest:
             xgb_residual.fit(e_X.reshape(-1, 1), e_Y)
             r2_residual = xgb_residual.score(e_X.reshape(-1, 1), e_Y)
         else:
+            beta_dml = 0
             r2_residual = 0
+        
+        # PoMA for DML
+        poma_dml = 1 - (beta_dml / beta_total) if abs(beta_total) > 1e-10 else np.nan
         
         return {
             'beta_total': beta_total,
             'beta_direct': beta_direct,
             'beta_m': beta_m,
+            'beta_dml': beta_dml,
             'poma_linear': poma_linear,
+            'poma_dml': poma_dml,
             'r2_total_linear': r2_total_linear,
             'r2_full_linear': r2_full_linear,
             'r2_m_to_y_linear': r2_m_to_y_linear,
@@ -263,6 +275,8 @@ def run_linear_blindness_test():
     print(f"    R²(X→Y) XGBoost: {result1['r2_total_xgb']:.4f}")
     print(f"    R²(M→Y) XGBoost: {result1['r2_m_to_y_xgb']:.4f} ← Detects strong relationship!")
     print(f"    R²(Y|M) DML:     {result1['r2_Y_given_M_dml']:.4f} ← 94% mediation!")
+    print(f"    β_dml:           {result1['beta_dml']:.6f}")
+    print(f"    PoMA (DML):      {result1['poma_dml']:.3f}" if not np.isnan(result1['poma_dml']) else "    PoMA (DML):      undefined")
     print(f"    R²(residuals):   {result1['r2_residual']:.4f} ← Little direct effect")
     
     # Scenario 2: Asymmetric weak mediation
@@ -284,6 +298,8 @@ def run_linear_blindness_test():
     print(f"    R²(X→Y) XGBoost: {result2['r2_total_xgb']:.4f}")
     print(f"    R²(M→Y) XGBoost: {result2['r2_m_to_y_xgb']:.4f}")
     print(f"    R²(Y|M) DML:     {result2['r2_Y_given_M_dml']:.4f} ← Low mediation")
+    print(f"    β_dml:           {result2['beta_dml']:.6f}")
+    print(f"    PoMA (DML):      {result2['poma_dml']:.3f}")
     print(f"    R²(residuals):   {result2['r2_residual']:.4f} ← Strong direct effect")
     
     # Create visualization
