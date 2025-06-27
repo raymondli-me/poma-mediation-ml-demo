@@ -10,6 +10,7 @@ import xgboost as xgb
 from sklearn.model_selection import KFold
 from tabulate import tabulate
 from pathlib import Path
+from poma_formula_utils import calculate_poma_with_corrections
 
 np.random.seed(42)
 
@@ -106,20 +107,27 @@ def perfect_symmetry_demo(n=5000):
     e_Y = Y - Y_hat
     e_X = X - X_hat
     
-    # DML coefficient (residual on residual)
-    if np.var(e_X) > 1e-10:
-        lr_dml = LinearRegression().fit(e_X.reshape(-1,1), e_Y)
-        beta_dml = lr_dml.coef_[0]
-        poma_dml = 1 - (beta_dml / beta_total) if abs(beta_total) > 1e-10 else np.nan
-    else:
-        beta_dml = 0
-        poma_dml = 1.0  # Complete mediation if no residual variance
+    # Calculate PoMA with corrections
+    poma_results = calculate_poma_with_corrections(X, Y, X_hat, Y_hat, e_X, e_Y)
     
     r2_y_given_m = 1 - np.mean((Y - Y_hat)**2) / np.var(Y)
     
     print(f"\nDML R²(Y|M) = {r2_y_given_m:.4f} ← ~100% mediation!")
-    print(f"  β_dml = {beta_dml:.4f}")
-    print(f"  PoMA (DML) = {poma_dml:.4f}" if not np.isnan(poma_dml) else "  PoMA (DML) = undefined")
+    print(f"  β_dml = {poma_results['beta_dml']:.4f}")
+    print(f"  PoMA (basic) = {poma_results['poma_basic']:.4f}" if not np.isnan(poma_results['poma_basic']) else "  PoMA (basic) = undefined")
+    print(f"  PoMA (formula) = {poma_results['poma_formula']:.4f}" if not np.isnan(poma_results['poma_formula']) else "  PoMA (formula) = undefined")
+    
+    print(f"\nCorrection terms:")
+    print(f"  C1 = {poma_results['C1']:.4f}")
+    print(f"  C2 = {poma_results['C2']:.4f}")
+    print(f"  C3 = {poma_results['C3']:.4f}")
+    
+    print(f"\nDiagnostics:")
+    print(f"  Cov(Y,X) = {poma_results['cov_Y_X']:.6f} ← Near zero!")
+    print(f"  β_total = {poma_results['beta_total']:.6f}")
+    print(f"  β_dml = {poma_results['beta_dml']:.6f}")
+    print(f"  Numerator = {poma_results['numerator']:.4f}")
+    print(f"  Denominator = {poma_results['denominator']:.4f}")
     
     return X, M, Y, {
         'r2_xm_linear': r2_xm_linear,
@@ -131,9 +139,10 @@ def perfect_symmetry_demo(n=5000):
         'r2_y_given_m_dml': r2_y_given_m,
         'beta_total': beta_total,
         'beta_direct': beta_direct,
-        'beta_dml': beta_dml,
+        'beta_dml': poma_results['beta_dml'],
         'poma_linear': poma_linear,
-        'poma_dml': poma_dml
+        'poma_dml': poma_results['poma_basic'],
+        'poma_formula': poma_results['poma_formula']
     }
 
 def weak_mediation_demo(n=5000):
@@ -189,14 +198,8 @@ def weak_mediation_demo(n=5000):
     e_Y = Y - Y_hat
     e_X = X - X_hat
     
-    # DML coefficient
-    if np.var(e_X) > 1e-10:
-        lr_dml = LinearRegression().fit(e_X.reshape(-1,1), e_Y)
-        beta_dml = lr_dml.coef_[0]
-        poma_dml = 1 - (beta_dml / beta_total) if abs(beta_total) > 1e-10 else np.nan
-    else:
-        beta_dml = 0
-        poma_dml = 1.0
+    # Calculate PoMA with corrections
+    poma_results = calculate_poma_with_corrections(X, Y, X_hat, Y_hat, e_X, e_Y)
     
     r2_y_given_m = 1 - np.mean((Y - Y_hat)**2) / np.var(Y)
     
@@ -206,13 +209,14 @@ def weak_mediation_demo(n=5000):
     
     print(f"\nPoMA Results:")
     print(f"  PoMA (linear) = {poma_linear:.4f}")
-    print(f"  PoMA (DML) = {poma_dml:.4f}")
+    print(f"  PoMA (DML) = {poma_results['poma_basic']:.4f}")
+    print(f"  PoMA (formula) = {poma_results['poma_formula']:.4f}")
     
-    return X, M, Y, r2_y_given_m, poma_linear, poma_dml
+    return X, M, Y, r2_y_given_m, poma_linear, poma_results['poma_basic'], poma_results['poma_formula']
 
 # Run demonstrations
 X1, M1, Y1, results1 = perfect_symmetry_demo()
-X2, M2, Y2, r2_2, poma_linear_2, poma_dml_2 = weak_mediation_demo()
+X2, M2, Y2, r2_2, poma_linear_2, poma_dml_2, poma_formula_2 = weak_mediation_demo()
 
 # Create visualization
 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
